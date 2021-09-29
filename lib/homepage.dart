@@ -1,8 +1,9 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 class HomePage extends StatefulWidget {
@@ -16,28 +17,19 @@ class _HomePageState extends State<HomePage> {
   final _mapController = Completer<GoogleMapController>();
   final _initialPos = const LatLng(37.42225729384123, -122.08405751644975);
 
-  final List<LatLng> _markerTargets = const [
-    LatLng(37.421405, -122.086193),
-    LatLng(37.432597, -122.076279),
-    LatLng(37.424126, -122.074559),
-  ];
+  final Set<Marker> _allMarker = {};
 
-  @override
-  void initState() {
-    super.initState();
-    _getCurrentLocation();
-  }
+  Future<void> getLocation() async {
+    final jsonFile = await rootBundle.loadString("assets/locations.json");
+    final json = jsonDecode(jsonFile) as List;
 
-  Future<void> _getCurrentLocation() async {
-    final currenLocation = _initialPos;
-    _moveToPosition(LatLng(currenLocation.latitude, currenLocation.longitude));
-  }
-
-  Future<BitmapDescriptor> _getMarkerIcon() async {
-    await Future.delayed(const Duration(seconds: 2));
-    return BitmapDescriptor.fromAssetImage(
-        const ImageConfiguration(devicePixelRatio: 2.5),
-        'assets/images/place.png');
+    for (int i = 0; i < json.length; i++) {
+      final latlng = LatLng(json[i]['lat'], json[i]['lon']);
+      _allMarker.add(Marker(
+        markerId: MarkerId(i.toString()),
+        position: latlng,
+      ));
+    }
   }
 
   @override
@@ -46,13 +38,10 @@ class _HomePageState extends State<HomePage> {
       appBar: AppBar(
         title: const Text("Google Map"),
       ),
-      body: FutureBuilder<BitmapDescriptor>(
-        future: _getMarkerIcon(),
+      body: FutureBuilder<void>(
+        future: getLocation(),
         builder: (context, snapshot) {
-          if (snapshot.hasData) {
-            final icon = snapshot.data;
-            final markers = _markTargets(icon!);
-
+          if (snapshot.connectionState == ConnectionState.done) {
             return GoogleMap(
               onMapCreated: (controller) {
                 _mapController.complete(controller);
@@ -61,10 +50,7 @@ class _HomePageState extends State<HomePage> {
                 target: _initialPos,
                 zoom: 15,
               ),
-              gestureRecognizers: {
-                Factory(() => PanGestureRecognizer()),
-              },
-              markers: markers,
+              markers: _allMarker,
             );
           }
           if (snapshot.hasError) {
@@ -88,31 +74,31 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Set<Marker> _markTargets(BitmapDescriptor icon) {
-    final Set<Marker> markers = {};
+  // Set<Marker> _markTargets(BitmapDescriptor icon) {
+  //   final Set<Marker> markers = {};
 
-    for (var i = 0; i < _markerTargets.length; i++) {
-      final currentMark = _markerTargets[i];
+  //   for (var i = 0; i < _markerTargets.length; i++) {
+  //     final currentMark = _markerTargets[i];
 
-      markers.add(Marker(
-        icon: icon,
-        markerId: MarkerId(i.toString()),
-        position: currentMark,
-        infoWindow: InfoWindow(
-          title: "Info: ${currentMark.latitude}, ${currentMark.longitude}",
-        ),
-        onTap: () {
-          //DO stuff when mark got tap
-        },
-      ));
-    }
-    return markers;
-  }
+  //     markers.add(Marker(
+  //       icon: icon,
+  //       markerId: MarkerId(i.toString()),
+  //       position: currentMark,
+  //       infoWindow: InfoWindow(
+  //         title: "Info: ${currentMark.latitude}, ${currentMark.longitude}",
+  //       ),
+  //       onTap: () {
+  //         //DO stuff when mark got tap
+  //       },
+  //     ));
+  //   }
+  //   return markers;
+  // }
 
-  Future<void> _moveToPosition(LatLng position) async {
-    final controller = await _mapController.future;
-    controller.animateCamera(
-      CameraUpdate.newLatLng(position),
-    );
-  }
+  // Future<void> _moveToPosition(LatLng position) async {
+  //   final controller = await _mapController.future;
+  //   controller.animateCamera(
+  //     CameraUpdate.newLatLng(position),
+  //   );
+  // }
 }
